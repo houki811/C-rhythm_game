@@ -1,0 +1,4 @@
+gakkyoku_1 0 0
+gakkyoku_2 2 12
+test 0 0
+tese1 0 0
