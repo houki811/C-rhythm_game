@@ -13,13 +13,13 @@
 #define NOTE_CHOICE 2
 #define KYE_CHOICE 3
 typedef struct {
-	int tempo[ARRAY_GYO*2-3];			//BPM•Û‘¶
+	int tempo[ARRAY_GYO];			//BPM•Û‘¶
 	int tempo_old;						//‰æ–ÊŠOBPM•\¦—p
 	int measure_beat, standard_beat;	//”q
 	char (*note)[7];
 }MUSIC_DATA;
 void descent(int, int, MUSIC_DATA* data, FILE* fp);
-void data_hyouji(int, int, int, MUSIC_DATA* data, char);
+void data_hyouji(int, int, int, int, MUSIC_DATA* data, char);
 int gyo_warp(int,char,char name[80],MUSIC_DATA* editor_data);
 void gyo_save(int, MUSIC_DATA* data, FILE* fp);
 void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name[80])
@@ -37,9 +37,8 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 		for (j = 0;j < 6;j++)
 			editor.note[i][j] = '0';
 		editor.note[i][j] = '\0';
-	}
-	for(i=0;i<ARRAY_GYO*2-3;i++)
 		editor.tempo[i] = 0;
+	}
 	editor.tempo_old = 0;
 	if (editor_mode == OVERWRITE_MODE || editor_mode == NEW_MODE)
 	{
@@ -60,19 +59,19 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 			printf("\x1b[H\x1b[K");
 		} while (editor.tempo[1] <= 0);
 		editor.tempo[0] = editor.tempo[1];
-		fprintf(fp, "%d %d/%d %s\n", editor.tempo[1], editor.measure_beat, editor.standard_beat, editor.note[0]);
 	}
 	else
 	{
-		if ((fp_work = fopen("rhythm_sub.txt", "w")) == NULL)
+		if ((fp_work = fopen("editor_sub.txt", "w")) == NULL)
 		{
 			printf("ƒtƒ@ƒCƒ‹ƒI[ƒvƒ“ƒGƒ‰[‚ª”­¶‚µ‚Ü‚µ‚½B");exit(1);
 		}
 		while (fscanf(fp, "%d %d/%d %s", &editor.tempo[0], &editor.measure_beat, &editor.standard_beat, editor.note[0]) != EOF)
 		{
-			descent(ARRAY_GYO, ARRAY_GYO - 1, &editor, fp_work);
-			editor_note_gyo_max++;
-			if (editor_tempo_gyo_max != 0) editor_tempo_gyo_max--;	//BPMQÆŠJnƒJƒEƒ“ƒg
+			gamen_gyo_max++;
+			descent(gamen_gyo_max, editor_tempo_gyo_max, &editor, fp_work);
+			if (editor_tempo_gyo_max != ARRAY_GYO - 1) editor_tempo_gyo_max++;	//BPMQÆŠJnƒJƒEƒ“ƒg
+			editor_note_gyo_max++;	//ƒm[ƒcƒf[ƒ^•ÒWs‚ÌãŒÀ‘‰Á
 		}
 		fclose(fp);
 		fp = fp_work;
@@ -81,7 +80,7 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 	{
 		printf("\x1b[H");
 		editor_gyo = 0;
-		data_hyouji(editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, PROCESS_CHOICE);
+		data_hyouji(editor_note_gyo_max, editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, PROCESS_CHOICE);
 		do	//‘I‘ğƒƒjƒ…[1
 		{
 			printf("ƒL[w’è:");
@@ -104,61 +103,101 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 					if (scanf("%d", &editor_gyo) != 1)
 						while (getchar() != '\n');
 					printf("\x1b[29H\x1b[K");
-					editor_gyo = gamen_gyo_max - (editor_gyo - 1);
-				} while (editor_gyo > gamen_gyo_max || (gyo_flg&0x4)!=0x4&&editor_gyo < 0);
-				if (gyo_flg == 0x0&&editor_gyo>ARRAY_GYO-1)	//‰æ–Ê•\¦‚ªÅ‚—ñ‚Ì‚©‚ÂA‰æ–ÊŠO‚Ö‚ÌˆÚ“® - ‰ß‹‚Ö‚ÌˆÚ“® -
+					editor_gyo = gamen_gyo_max - (editor_gyo - 1);	//+:‰ß‹•ûŒü 0:‰æ–Ê‚ÌÅ‘ås -:ÅV•ûŒü
+				} while (editor_gyo < gamen_gyo_max - editor_note_gyo_max || editor_gyo > editor_note_gyo_max);
+				if ((gyo_flg == 0x6 || gyo_flg == 0x4) && editor_gyo > ARRAY_GYO - 1)
+				{
+					gyo_flg = 0x5;
+					if ((fp_work = fopen(name, "r")) == NULL)
+					{
+						printf("ƒGƒ‰[\n"); exit(1);
+					}
+					for (i = 0;fscanf(fp_work, "%*d %*d/%*d %*s") != EOF && i < gamen_gyo_max;i++);	//ƒRƒs[n‚ß‚és‚Ü‚ÅƒXƒLƒbƒv
+					for (j = i;fscanf(fp_work, "%d %d/%d %s", &editor.tempo[0], &editor.measure_beat, &editor.standard_beat, editor.note[0]) != EOF;j++)	//EOF(ƒf[ƒ^‚ÌÅŒã‚Ü‚Å)ƒRƒs[
+					{
+						gamen_gyo_max++;
+						descent(gamen_gyo_max, editor_tempo_gyo_max, &editor, fp);
+						editor_tempo_gyo_max++;
+					}
+					gyo_save(gamen_gyo_max, &editor, fp);
+					fclose(fp);
+					fclose(fp_work);
+					gamen_gyo_max = i - editor_gyo;
+					remove(name);
+					rename("editor_sub.txt", name);
+					editor_gyo = 0;
+					editor_tempo_gyo_max = gyo_warp(gamen_gyo_max, gyo_flg, name, &editor);	//“ñŸŒ³”z—ñ“™‚ğ®”õ
+					if ((fp = fopen("editor_sub.txt", "a")) == NULL)	//ˆê•Û‘¶ƒf[ƒ^—pƒtƒ@ƒCƒ‹
+					{
+						printf("ƒGƒ‰[\n"); exit(1);
+					}
+				}
+				else if ((gyo_flg >> 1) == 0x0 && editor_gyo > ARRAY_GYO - 1)	//‰æ–Ê•\¦‚ªÅ‚—ñ‚Ì‚©‚ÂA‰æ–ÊŠO‚Ö‚ÌˆÚ“® - ‰ß‹‚Ö‚ÌˆÚ“® -
 				{
 					gyo_flg = 0x4;
 					gamen_gyo_max = editor_note_gyo_max - editor_gyo;
 					editor_gyo = 0;
 					gyo_save(editor_note_gyo_max, &editor, fp);	//‚ ‚Ü‚è‚Ìƒf[ƒ^ˆêŠ‡•Û‘¶
 					fclose(fp);
-					editor_tempo_gyo_max = gyo_warp(gamen_gyo_max, gyo_flg, name, &editor);
-					if ((fp = fopen("editor_sub.txt", "a")) == NULL)
+					editor_tempo_gyo_max = gyo_warp(gamen_gyo_max, gyo_flg, name, &editor);	//“ñŸŒ³”z—ñ“™‚ğ®”õ
+					if ((fp = fopen("editor_sub.txt", "a")) == NULL)	//ˆê•Û‘¶ƒf[ƒ^—pƒtƒ@ƒCƒ‹
 					{
 						printf("ƒGƒ‰[\n"); exit(1);
 					}
-					/*for (i = 0;i < ARRAY_GYO;i++)
-						printf("%d %s\n", editor.tempo[i], editor.note[i]);
-					for (;i < ARRAY_GYO * 2 - 3;i++)
-						printf("%d\n", editor.tempo[i]);
-					Sleep(10000);*/
 				}
 				else if ((gyo_flg & 0x4) == 0x4 && editor_gyo < 0)	//‰æ–ÊŠO‚Ö‚ÌˆÚ“® - ÅV‚Ö‚ÌˆÚ“® -
 				{
-					if (editor_note_gyo_max + editor_gyo == 0)		//Å‚—ñ‚Ö‚ÌˆÚ“®
+					if ((fp_work = fopen(name, "r")) == NULL)
 					{
-						gyo_flg = 0x0;
+						printf("ƒGƒ‰[\n"); exit(1);
+					}
+					for (i = 0;fscanf(fp_work, "%*d %*d/%*d %*s") != EOF && i < gamen_gyo_max;i++);	//ƒRƒs[n‚ß‚és‚Ü‚ÅƒXƒLƒbƒv
+					if (gyo_flg == 0x5)
+						fscanf(fp_work, "%*d %*d/%*d %*s");
+					if (editor_note_gyo_max - (gamen_gyo_max - editor_gyo) == 0)		//Å‚—ñ‚Ö‚ÌˆÚ“®(if‚ÌğŒ:‘S‘Ì‚Ìƒf[ƒ^s”-(‰æ–Ê‚ÌÅ‘ås-ˆÚ“®‚·‚és”))
+					{
+						gyo_flg = 0x1;
+					}
+					else	//ÅŒã—ñˆÈŠO‚Ö‚ÌˆÚ“®
+					{
+						gyo_flg = 0x6;
+					}
+					for (j=i;fscanf(fp_work, "%d %d/%d %s", &editor.tempo[0], &editor.measure_beat, &editor.standard_beat, editor.note[0]) != EOF;j++)	//EOF(ƒf[ƒ^‚ÌÅŒã‚Ü‚Å)ƒRƒs[
+					{
+						gamen_gyo_max++;
+						descent(gamen_gyo_max, editor_tempo_gyo_max, &editor, fp);
+						editor_tempo_gyo_max++;
+					}
+					gyo_save(gamen_gyo_max, &editor, fp);
+					fclose(fp);
+					fclose(fp_work);
+
+					if (gyo_flg == 0x1)
 						gamen_gyo_max = editor_note_gyo_max;
-						fclose(fp);
-						editor_tempo_gyo_max = gyo_warp(editor_note_gyo_max, gyo_flg, name,&editor);
-						if ((fp = fopen(name, "a")) == NULL)
+					else
+						gamen_gyo_max = i - editor_gyo;
+					editor_gyo = 0;
+					remove(name);
+					rename("editor_sub.txt", name);
+					editor_tempo_gyo_max = gyo_warp(gamen_gyo_max, gyo_flg, name,&editor);	//•\¦—pƒf[ƒ^€”õ
+					if (gyo_flg == 0x1)
+					{
+						remove(name);
+						rename("editor_sub.txt", name);
+						if ((fp = fopen(name, "a")) == NULL)	//‚±‚ê‚©‚çg—p‚·‚éƒtƒ@ƒCƒ‹ƒI[ƒvƒ“
 						{
 							printf("ƒGƒ‰[\n"); exit(1);
 						}
 					}
 					else
 					{
-						fclose(fp);
-						editor_tempo_gyo_max = gyo_warp(gamen_gyo_max - editor_gyo, gyo_flg, name,&editor);
-						gamen_gyo_max = editor_gyo;
 						if ((fp = fopen("editor_sub.txt", "a")) == NULL)
 						{
 							printf("ƒGƒ‰[\n"); exit(1);
 						}
 					}
 				}
-				else if ((gyo_flg & 0x4) == 0x4 && editor_gyo > ARRAY_GYO - 1)
-				{
-					fclose(fp);
-					editor_tempo_gyo_max = gyo_warp(gamen_gyo_max - editor_gyo, gyo_flg, name,&editor);
-					gamen_gyo_max = editor_gyo;
-					if ((fp = fopen("editor_sub.txt", "a")) == NULL)
-					{
-						printf("ƒGƒ‰[\n"); exit(1);
-					}
-				}
-				data_hyouji(editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, PROCESS_CHOICE);
+				data_hyouji(editor_note_gyo_max, editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, PROCESS_CHOICE);
 				break;
 			case 't':
 				if (editor_gyo<ARRAY_GYO-3)	//ƒeƒ“ƒ|(ƒm[ƒc‘¬“x)•ÏX
@@ -170,8 +209,7 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 							while (getchar() != '\n');
 						printf("\x1b[29H\x1b[K");
 					} while (editor.tempo[editor_gyo] < 0);
-					if (editor.tempo[editor_gyo] != 0)
-					data_hyouji(editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, PROCESS_CHOICE);
+					data_hyouji(editor_note_gyo_max, editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, PROCESS_CHOICE);
 				}
 				break;
 			case 'q':
@@ -182,7 +220,7 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 		if (kye == 'q') break;
 		while (1)	//‘I‘ğƒƒjƒ…[2
 		{
-			data_hyouji(editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, NOTE_CHOICE);
+			data_hyouji(editor_note_gyo_max, editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, NOTE_CHOICE);
 			do
 			{
 				printf("ƒm[ƒc‘I‘ğ:");
@@ -205,7 +243,7 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 				}
 			} while ((note_number < 0 || note_number > 10) && note_number != 99);
 			if (note_number == 99) break;
-			data_hyouji(editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, KYE_CHOICE);
+			data_hyouji(editor_note_gyo_max, editor_gyo, gamen_gyo_max, editor_tempo_gyo_max, &editor, KYE_CHOICE);
 			do
 			{
 				printf("ƒL[w’è:");
@@ -229,8 +267,19 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 		{	
 			gamen_gyo_max++;
 			descent(gamen_gyo_max, editor_tempo_gyo_max, &editor, fp);
-			if (editor_tempo_gyo_max!=ARRAY_GYO*2-6) editor_tempo_gyo_max++;	//BPMQÆŠJnƒJƒEƒ“ƒg
-			if(gyo_flg==0x0) editor_note_gyo_max++;	//ƒm[ƒcƒf[ƒ^•ÒWs‚ÌãŒÀ‘‰Á
+			if (editor_tempo_gyo_max!=ARRAY_GYO-1) editor_tempo_gyo_max++;	//BPMQÆŠJnƒJƒEƒ“ƒg
+			if((gyo_flg>>1)==0x0) editor_note_gyo_max++;	//ƒm[ƒcƒf[ƒ^•ÒWs‚ÌãŒÀ‘‰Á
+			if ((gyo_flg & 0x4) == 0x4&&editor_note_gyo_max==gamen_gyo_max)	//‰ß‹‚É–ß‚Á‚Ä‚¢‚½ó‘Ô‚©‚çÅV‚Ìs‚Ü‚Å—ˆ‚½
+			{
+				gyo_flg = 0x0;	//ƒf[ƒ^ˆÚ“®‰Šú(‚È‚µ)ó‘Ô
+				fclose(fp);
+				remove(name);
+				rename("editor_sub.txt", name);
+				if ((fp = fopen(name, "a")) == NULL)	//‚±‚ê‚©‚çg—p‚·‚éƒtƒ@ƒCƒ‹ƒI[ƒvƒ“
+				{
+					printf("ƒGƒ‰[\n"); exit(1);
+				}
+			}
 		}
 	}
 	//«•ÒWI—¹
@@ -241,28 +290,19 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 			printf("ƒGƒ‰[\n"); exit(1);
 		}
 		for (i = 0;fscanf(fp_work, "%*d %*d/%*d %*s") != EOF && i < gamen_gyo_max;i++);
-		while (fscanf(fp_work, "%d %d/%d %s", &editor.tempo[13], &editor.measure_beat, &editor.standard_beat, &editor.note[0]) != EOF)
+		if (gyo_flg == 0x5)
+			fscanf(fp_work, "%*d %*d/%*d %*s");
+		while (fscanf(fp_work, "%d %d/%d %s", &editor.tempo[0], &editor.measure_beat, &editor.standard_beat, &editor.note[0]) != EOF)
 		{
-			for (j = 0;j < ARRAY_GYO;j++)
-				printf("%d %s\n", editor.tempo[j], editor.note[j]);
-			for (;j < ARRAY_GYO * 2 - 3;j++)
-				printf("%d\n", editor.tempo[j]);
-			Sleep(500);
 			gamen_gyo_max++;
 			descent(gamen_gyo_max, editor_tempo_gyo_max, &editor, fp);
-			if (editor_tempo_gyo_max != ARRAY_GYO * 2 - 4) editor_tempo_gyo_max++;	//BPMQÆŠJnƒJƒEƒ“ƒg
-			for (j = 0;j < ARRAY_GYO;j++)
-				printf("%d %s\n", editor.tempo[j], editor.note[j]);
-			for (;j < ARRAY_GYO * 2 - 3;j++)
-				printf("%d\n", editor.tempo[j]);
-			Sleep(500);
-
+			if (editor_tempo_gyo_max != ARRAY_GYO-1) editor_tempo_gyo_max++;	//BPMQÆŠJnƒJƒEƒ“ƒg
 		}
 		gyo_save(editor_note_gyo_max, &editor, fp);
 		fclose(fp);
 		fclose(fp_work);
-		//remove(name);
-		//rename("editor_sub.txt", name);
+		remove(name);
+		rename("editor_sub.txt", name);
 	}
 	else
 	{
@@ -270,17 +310,23 @@ void editor(char note_gamen[ARRAY_GYO][7], FILE* fp, char editor_mode, char name
 		fclose(fp);
 	}
 }
-void data_hyouji(int gyo, int gyo_max, int tempo_gyo_max, MUSIC_DATA* data, char id)	//‰æ–Ê•\¦
+void data_hyouji(int data_max, int gyo, int gyo_max, int tempo_gyo_max, MUSIC_DATA* data, char id)	//‰æ–Ê•\¦
 {
 	int i, j;
 	int bpm_valie;
 	int measure;
 	measure = data->measure_beat;
 	printf("\x1b[H");
-	for (i = ARRAY_GYO*2-2 ;i >= gyo;i--)
+	for (i = 0;i < ARRAY_GYO;i++)
 	{
-		if (data->tempo[i] != 0) bpm_valie = data->tempo[i];
+		if (data->tempo[i] != 0)
+		{
+			bpm_valie = data->tempo[i];
+			break;
+		}
 	}
+	if (i == ARRAY_GYO)
+		bpm_valie = data->tempo_old;
 	printf("\n          (BPM)  [Œ»İ‚ÌBPM :%3d]", bpm_valie);
 	for (i = 0;i < ARRAY_GYO;i++)
 	{
@@ -315,8 +361,12 @@ void data_hyouji(int gyo, int gyo_max, int tempo_gyo_max, MUSIC_DATA* data, char
 		if ((gyo_max - i) % ((16/data->standard_beat)*data->measure_beat) == 0) printf(COLLAR_MEASURE);
 		else if (gyo_max - i + 1 == 1 || (gyo_max - i) % (16 / data->standard_beat) == 0) printf(COLLAR_BEAT);
 		else printf(COLLAR_GYO);
-		if (gyo_max - i + 1 > 0) printf(" %2d", gyo_max - i + 1);	//s”•\¦
+		if (gyo_max - i + 1 > 0) printf(" %3d", gyo_max - i + 1);	//s”•\¦
+		else printf("    ");
 		printf(COLLAR_RESET);
+		if (i == 0) printf("  „¡ ‘s” „¢");
+		else if (i == 1) printf("  „   %4d  „ ",data_max+1);
+		else if (i == 2) printf("  „¤„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„Ÿ„£");
 	}
 	printf("\n                  A  S  D  J  K  L");
 	switch (id)
@@ -357,12 +407,6 @@ void data_hyouji(int gyo, int gyo_max, int tempo_gyo_max, MUSIC_DATA* data, char
 void descent(int gyo_max, int tempo_gyo_max, MUSIC_DATA* data, FILE* fp)	//ƒm[ƒcƒf[ƒ^‚ÌˆÚ“®
 {
 	int i, j;
-	/*for (i = 0;i < ARRAY_GYO;i++)
-		printf("%d %s\n", data->tempo[i], data->note[i]);
-	for (;i < ARRAY_GYO * 2 - 3;i++)
-		printf("%d\n", data->tempo[i]);
-	//Sleep(500);
-	printf("\x1b[2J");*/
 	for (i = gyo_max;i >= 0;i--)
 	{
 		if (i < ARRAY_GYO - 1)	//ƒm[ƒcƒf[ƒ^‚Ì~‰º
@@ -374,59 +418,53 @@ void descent(int gyo_max, int tempo_gyo_max, MUSIC_DATA* data, FILE* fp)	//ƒm[ƒ
 			}
 		}
 	}
-	if (tempo_gyo_max != ARRAY_GYO * 2 - 4) tempo_gyo_max++;
+	if (tempo_gyo_max != ARRAY_GYO-1) tempo_gyo_max++;
 	for (i = tempo_gyo_max;i >= 0;i--)	//BPMƒf[ƒ^‚Ì~‰º
 	{
-		data->tempo[i + 1] = data->tempo[i];
-		data->tempo[i] = 0;
+		if (i < ARRAY_GYO - 1)
+		{
+			data->tempo[i + 1] = data->tempo[i];
+			data->tempo[i] = 0;
+		}
 	}
-	if (data->tempo[ARRAY_GYO] != 0) data->tempo_old = data->tempo[ARRAY_GYO];
-	if (gyo_max >= ARRAY_GYO-1)	//ƒf[ƒ^•Û‘¶
+	if (data->tempo[ARRAY_GYO-1] != 0) data->tempo_old = data->tempo[ARRAY_GYO-1];
+	if (gyo_max >= ARRAY_GYO-2)	//ƒf[ƒ^•Û‘¶
 	{
-		fprintf(fp, "%d %d/%d %s\n", data->tempo[ARRAY_GYO * 2 - 4], data->measure_beat, data->standard_beat, data->note[ARRAY_GYO - 1]);
+		fprintf(fp, "%d %d/%d %s\n", data->tempo[ARRAY_GYO - 1], data->measure_beat, data->standard_beat, data->note[ARRAY_GYO - 1]);
 	}
-	/*for (i = 0;i < ARRAY_GYO;i++)
-		printf("%d %s\n", data->tempo[i], data->note[i]);
-	for (;i < ARRAY_GYO * 2 - 3;i++)
-		printf("%d\n", data->tempo[i]);
-	//Sleep(300);
-	printf("\x1b[2J");*/
+	printf("\x1b[2J");
+	for (j = 0;j < ARRAY_GYO;j++)
+		printf("%d %d/%d %s\n", data->tempo[j], data->measure_beat, data->standard_beat, data->note[j]);
+	Sleep(300);
 }
 int gyo_warp(int gyo,char flg,char name[80],MUSIC_DATA* editor_data)	//‰æ–ÊŠOs‚Ö‚ÌsˆÚ“®
 { 
 	FILE* fp, * fp_work;
 	int i,j;
 	int max=0,tempo_max=0;
-	int bpm_work;
-	for (i = 0;i < ARRAY_GYO;i++)
+	if (flg == 0x1 || flg == 0x6 || flg == 0x5)
+		max--;
+	printf("%d\n", gyo);
+	Sleep(2000);
+	for (i = 0;i < ARRAY_GYO;i++)	//‰Šú‰»
 	{
 		for (j = 0;j < 6;j++)
 			editor_data->note[i][j] = '0';
 		editor_data->note[i][j] = '\0';
-	}
-	for (i = 0;i < ARRAY_GYO * 2 - 3;i++)
 		editor_data->tempo[i] = 0;
+	}
 	editor_data->tempo_old = 0;
 	if ((fp_work = fopen(name, "r")) == NULL || (fp = fopen("editor_sub.txt", "w")) == NULL)
 	{
 		printf("ƒGƒ‰[\n");exit(1);
 	}
+	if (flg == 0x5)
+		fscanf(fp_work, "%*d %*d/%*d %*s");
 	for (i = 0;fscanf(fp_work, "%d %d/%d %s",&editor_data->tempo[0], & editor_data->measure_beat, &editor_data->standard_beat, editor_data->note[0]) != EOF && i < gyo+1;i++)	//BPMˆÈŠO‚Ìƒf[ƒ^‚ğƒRƒs[
 	{
-		if(i==0)
-			fprintf(fp, "%d %d/%d 000000\n", editor_data->tempo[0], editor_data->measure_beat, editor_data->standard_beat);
 		max++;
 		descent(max, tempo_max, editor_data, fp);
-		if (tempo_max != ARRAY_GYO * 2 - 6) tempo_max++;
-	}
-	while (fscanf(fp_work, "%*d %*d/%*d %*s") != EOF)	//BPM‚ª‚ ‚é‚Æ‚±‚ë‚Ü‚ÅˆÚ“®
-	{
-		if (i == ARRAY_GYO - 4) break;
-		else i++;
-	}
-	for (i=gyo;fscanf(fp_work, "%d %*d/%*d %*s", &bpm_work) != EOF&&i>=0;i--)	//BPMƒf[ƒ^‚ğƒRƒs[
-	{
-		editor_data->tempo[i] = bpm_work;
+		if (tempo_max != ARRAY_GYO-1) tempo_max++;
 	}
 	printf("\x1b[2J");
 	fclose(fp);
@@ -437,16 +475,14 @@ void gyo_save(int gyo_max,MUSIC_DATA* data,FILE* fp)
 {
 	int i;
 	if (gyo_max >= ARRAY_GYO) gyo_max = ARRAY_GYO;
-	else gyo_max++;
 	while (1)	//ƒf[ƒ^‚ª‚È‚­‚È‚é‚Ü‚Å•Û‘¶
 	{
-		for (i = 0;i < ARRAY_GYO * 2 - 4;i++)
+		for (i = 0;i < ARRAY_GYO;i++)
 		{
-			if (i < ARRAY_GYO && strcmp(data->note[i], "000000") != 0) break;
-			if (data->tempo[i] != 0) break;
+			if (strcmp(data->note[i], "000000") != 0 && data->tempo[i] == 0) break;
 		}
-		if (i == ARRAY_GYO * 2 - 4) break;
-		descent(gyo_max, ARRAY_GYO * 2 - 4,data,fp);
+		if (i == ARRAY_GYO) break;
 		gyo_max++;
+		descent(gyo_max, ARRAY_GYO-1,data,fp);
 	}
 }
